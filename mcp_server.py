@@ -171,7 +171,9 @@ def _handle_list_branches(repo_path: str = ".") -> dict:
 
 
 def _handle_sample() -> dict:
-    report = test_with_sample_diff()
+    import io, contextlib
+    with contextlib.redirect_stdout(io.StringIO()):
+        report = test_with_sample_diff()
     return {
         "success": True,
         "report": json.loads(report.model_dump_json()),
