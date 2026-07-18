@@ -21,3 +21,4 @@ Thumbs.db
 # Reports (generated)
 *.html
 # *.md
+.merge-explain-cache
