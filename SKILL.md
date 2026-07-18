@@ -66,11 +66,31 @@ git diff main...<branch-b> -- <file-path>
 
 ### 5. 输出格式
 
-分析结果要像 Codex 原生 diff 那样展示：
-- 文件路径要可点击（使用代码仓库内的相对路径）
-- 变更内容用 diff 代码块内嵌展示
-- 不要用文字复述 diff，用户自己会看代码
-- 注意：分析的是「两者合入 main」而非「两个分支互比」
+**简洁、直观。不用 diff 语法高亮，用平实的文字标注变化。**
+
+```
+### 📁 [<file-path>](<vscode-link>)
+
+<branch-a>:   <函数/变量名>  <原值> → <新值>
+<branch-b>:   <函数/变量名>  <原值> → <新值>
+
+冲突（合入 <target> 后）：
+<<<<<<< HEAD (<target>)
+(冲突代码)
+=======
+(<branch> 的代码)
+>>>>>>> <branch>
+
+建议：一句话，不赘述
+结论：自动合并 / 人工审查 / 阻塞
+```
+
+同时提供 diff 命令（会打开 VS Code 侧边 diff 视图）：
+
+```bash
+# 查看 <branch-a> 相对 <target> 的 diff
+./scripts/diff.sh <branch-a> <file>
+```
 
 格式：
 
