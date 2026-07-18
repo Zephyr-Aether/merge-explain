@@ -1,49 +1,108 @@
-# merge-explain
+---
+name: "merge-explain"
+description: "Analyze and resolve git merge conflicts with AI. Use when the user asks to analyze branch differences, understand conflicting changes between branches, auto-resolve merge conflicts, or get a structured merge report."
+---
 
-可解释性 AI 合并工具 — 先理解，再合并。
+## Prerequisites
 
-## 能力
+1. Python 3.9+ must be installed. Check `python3 --version`. If missing, ask the user to install Python.
+2. API key must be configured. Check `.env` file exists with `OPENAI_API_KEY`. If missing, ask user to copy `.env.example` to `.env` and fill in the key.
+3. The current directory must be a git repository. Check with `git rev-parse --git-dir`.
 
-当用户遇到以下场景时，你应该使用 merge-explain：
-- 用户说"帮我分析两个分支的冲突"
-- 用户说"这两个分支改了什么东西，能不能合"
-- 用户说"帮我解决合并冲突"
-- 用户说"我看不懂这个 Diff"
+## Installation
 
-## 工作流程
+If the tool is not yet installed:
 
-### 1. 分析冲突（analyze_conflicts）
+```bash
+cd /path/to/merge-explain
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
 
-调用 `analyze_conflicts` tool，传入两个分支名。
+## Workflow
 
-返回的结构化报告包含：
-- `branch_a_summary` / `branch_b_summary`：每个分支改了哪些文件/函数
-- `conflicts`：冲突列表，每条包含风险等级（green/yellow/red）、双方操作说明、处理建议、冲突代码片段
-- `overall_advice`：总体建议（auto_merge / manual_review / blocked）
+### 1. Analyze conflicts between two branches
 
-### 2. 解决冲突（resolve_conflicts）
+Use the MCP tool `analyze_conflicts` or the CLI command:
 
-如果用户确认要自动解决，调用 `resolve_conflicts` tool，传入两个分支名。
+```bash
+./run.sh analyze <branch-a> <branch-b>
+```
 
-- 默认 dry-run（只预览，不写文件）
-- 如果用户确认应用，设置 `apply: true`
+The output is a structured report containing:
 
-### 3. 列出分支（list_branches）
+- **branch_a_summary / branch_b_summary**: What each branch changed, organized by file and function
+- **conflicts**: List of conflict points, each with:
+  - `file_path`: Where the conflict occurs
+  - `risk`: Risk level (see below)
+  - `branch_a_action / branch_b_action`: What each branch did
+  - `suggestion`: AI's recommended handling
+  - `code_snippet`: The actual conflicting code lines
+- **overall_advice**: One of `auto_merge` / `manual_review` / `blocked`
+- **reasoning**: Why this advice was given
 
-调用 `list_branches` tool 查看仓库中的所有分支。
+### 2. Auto-resolve conflicts
 
-### 4. 示例分析（sample_analysis）
+After reviewing the analysis, use the MCP tool `resolve_conflicts` or:
 
-如需展示工具的输出格式，调用 `sample_analysis` tool。不需要 API Key，不需要真实 Git 仓库。
+```bash
+# Preview only (default)
+./run.sh resolve <branch-a> <branch-b>
 
-## 输出解读
+# Apply changes
+./run.sh resolve <branch-a> <branch-b> --apply
 
-- 🟢 green：伪冲突，逻辑无交集，可安全自动合并
-- 🟡 yellow：逻辑改动重叠但不互斥，建议人工复核
-- 🔴 red：真冲突或互斥逻辑，必须人工决策
+# Reuse analysis suggestions
+./run.sh resolve <branch-a> <branch-b> --from-report report.json
+```
 
-## 注意事项
+The tool will:
+1. Trigger `git merge` to detect conflicts
+2. Parse `<<<<<<<` / `=======` / `>>>>>>>` markers
+3. Extract BASE / branch_a / branch_b versions with context
+4. Call LLM to generate merged code for each conflict block
+5. Apply changes with syntax checking
 
-- 所有工具调用失败时会返回 error，包含具体的错误信息
-- API Key 通过 .env 文件配置，未配置时会返回明确的错误提示
-- resolve_conflicts 默认不修改文件，务必先让用户确认后再传 apply: true
+### 3. List branches
+
+Use the MCP tool `list_branches` to see available branches.
+
+### 4. Quick test
+
+Run the sample analysis to verify the tool works (no API key needed):
+
+```bash
+./run.sh sample
+```
+
+## Risk Level Interpretation
+
+| Level | Meaning | Action |
+|-------|---------|--------|
+| 🟢 green | Different files/functions, no logical overlap | Safe to auto-merge |
+| 🟡 yellow | Same file/function, different aspects | Review recommended |
+| 🔴 red | Same line or mutually exclusive logic | Must resolve manually |
+
+## Output Formats
+
+The `analyze` command supports:
+
+- `terminal` (default): Rich colored table output
+- `html`: Self-contained HTML report (use `-o report.html`)
+- `markdown`: Markdown report (use `-o report.md`)
+
+## Advanced Options
+
+```bash
+./run.sh analyze <branch-a> <branch-b> -v          # Show raw diff alongside report
+./run.sh analyze <branch-a> <branch-b> --no-cache   # Force re-analysis
+./run.sh resolve <branch-a> <branch-b> --risk-threshold green  # Only auto-solve green conflicts
+```
+
+## Safety
+
+- `analyze` never modifies files
+- `resolve` defaults to dry-run (preview only); use `--apply` to write
+- Auto-backup before writing; syntax check rolls back on failure
+- RED risk conflicts are always skipped in auto-resolve

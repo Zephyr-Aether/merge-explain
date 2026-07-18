@@ -22,3 +22,6 @@ Thumbs.db
 *.html
 # *.md
 .merge-explain-cache
+
+# Skill assets samples
+*.sample

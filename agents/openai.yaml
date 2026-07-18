@@ -1,0 +1,6 @@
+interface:
+  display_name: "Merge-Explain"
+  short_description: "Analyze and resolve git merge conflicts with AI"
+  icon_small: "./assets/merge-explain-small.svg"
+  icon_large: "./assets/merge-explain.png"
+  default_prompt: "Analyze conflicts between two branches and explain the changes"

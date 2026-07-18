@@ -11,5 +11,9 @@
       "cwd": ".",
       "env": {}
     }
-  ]
+  ],
+  "assets": {
+    "icon_small": "assets/merge-explain-small.svg",
+    "icon_large": "assets/merge-explain.png"
+  }
 }
