@@ -66,30 +66,26 @@ git diff main...<branch-b> -- <file-path>
 
 ### 5. 输出格式
 
-**简洁、直观。不用 diff 语法高亮，用平实的文字标注变化。**
-
 ```
-### 📁 [<file-path>](<vscode-link>)
+📄 冲突文件
 
-<branch-a>:   <函数/变量名>  <原值> → <新值>
-<branch-b>:   <函数/变量名>  <原值> → <新值>
+  [<file-path>] 🔴/🟡/🟢
+  <branch-a>   <变量>   <原值> → <新值>
+  <branch-b>   <变量>   <原值> → <新值>
 
-冲突（合入 <target> 后）：
-<<<<<<< HEAD (<target>)
-(冲突代码)
-=======
-(<branch> 的代码)
->>>>>>> <branch>
+  合入 <target> 后冲突：
+  <<<<<<< HEAD (<target>)
+  (冲突代码)
+  =======
+  (合并来的代码)
+  >>>>>>> <branch>
 
-建议：一句话，不赘述
+  建议：一句话
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 结论：自动合并 / 人工审查 / 阻塞
-```
-
-同时提供 diff 命令（会打开 VS Code 侧边 diff 视图）：
-
-```bash
-# 查看 <branch-a> 相对 <target> 的 diff
-./scripts/diff.sh <branch-a> <file>
+理由：一句话
 ```
 
 格式：
