@@ -1,23 +1,23 @@
- # Python
- __pycache__/
- *.py[cod]
- *.egg-info/
- dist/
- build/
- 
- # Environment
- .env
- .venv/
- venv/
- 
- # IDE
- .vscode/
- .idea/
- 
- # OS
- .DS_Store
- Thumbs.db
- 
- # Reports (generated)
- *.html
-#  *.md
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Reports (generated)
+*.html
+# *.md
