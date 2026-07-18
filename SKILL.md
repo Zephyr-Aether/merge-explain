@@ -5,14 +5,16 @@ description: "Analyze and resolve git merge conflicts. Use when the user asks to
 
 ## 能力说明
 
-你可以自己分析两个 Git 分支之间的代码变更，不需要依赖任何外部 API。
+你可以分析两个特性分支分别合入主分支（main/master）时会产生哪些冲突。
 
-**流程**：
-1. 获取两个分支的 diff
-2. 分析变更语义
-3. 判断冲突风险等级
+用户通常会给出两个分支名，隐含的目标是 main/master。你需要：
+1. 分别获取两个分支相对于 main 的 diff
+2. 分析各自的变更语义
+3. 看在 main 上合入两者时会有什么冲突
 4. 给出合并建议
 5. 可选：自动解决冲突
+
+> 如果用户明确指定了目标分支（如 main、master 或其他），以用户指定为准。
 
 ---
 
@@ -21,20 +23,17 @@ description: "Analyze and resolve git merge conflicts. Use when the user asks to
 ### 1. 获取 diff
 
 ```bash
-# 找到共同祖先
-MERGE_BASE=$(git merge-base <branch-a> <branch-b>)
-
-# 获取双方的变更
-git diff $MERGE_BASE <branch-a>
-git diff $MERGE_BASE <branch-b>
+# 获取两个分支各自相对于 main 的变更（三点式 = 分支独有变化）
+git diff main...<branch-a>
+git diff main...<branch-b>
 
 # 查看变更文件列表
-git diff $MERGE_BASE <branch-a> --name-status
-git diff $MERGE_BASE <branch-b> --name-status
+git diff main...<branch-a> --name-status
+git diff main...<branch-b> --name-status
 
 # 查看单个文件的详细 diff
-git diff $MERGE_BASE <branch-a> -- <file-path>
-git diff $MERGE_BASE <branch-b> -- <file-path>
+git diff main...<branch-a> -- <file-path>
+git diff main...<branch-b> -- <file-path>
 ```
 
 ### 2. 分析变更
@@ -67,38 +66,40 @@ git diff $MERGE_BASE <branch-b> -- <file-path>
 
 ### 5. 输出格式
 
-按以下结构汇报结果，**必须包含实际代码块**，不要只写文字描述：
+分析结果要像 Codex 原生 diff 那样展示：
+- 文件路径要可点击（使用代码仓库内的相对路径）
+- 变更内容用 diff 代码块内嵌展示
+- 不要用文字复述 diff，用户自己会看代码
+- 注意：分析的是「两者合入 main」而非「两个分支互比」
+
+格式：
 
 `````
 ### 📁 变更文件
 
-<file-path>
+[<file-path>](<repo-relative-path>)
 
-#### 🅰️ <branch-a> 的改动
+<branch-a> 的改动：
 ```diff
-(实际 diff 内容)
+...实际diff内容...
 ```
 
-#### 🅱️ <branch-b> 的改动
+<branch-b> 的改动：
 ```diff
-(实际 diff 内容)
+...实际diff内容...
 ```
 
 ---
 
 ### ⚡ 冲突分析
 
-#### #1 <file-path>  🟡/🔴/🟢
+#### #1 [<file-path>](<repo-relative-path>)  🟡/🔴/🟢
 
-双方实际改动的代码：
-
-```diff
 <<<<<<< HEAD (<branch-b>)
-(冲突代码)
+(实际冲突代码)
 =======
 (<branch-a> 的代码)
 >>>>>>> <branch-a>
-```
 
 **建议**：具体可执行的处理建议
 
@@ -108,7 +109,6 @@ git diff $MERGE_BASE <branch-b> -- <file-path>
 
 **建议**：自动合并 / 人工审查 / 阻塞
 **理由**：一句话解释
-**冲突代码**：如果只有一处冲突，直接展示完整冲突块
 `````
 
 ---

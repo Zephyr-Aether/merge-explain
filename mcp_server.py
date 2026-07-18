@@ -51,17 +51,22 @@ def _result(id_val: Any, result_data: Any) -> dict:
 TOOLS: list[dict] = [
     {
         "name": "analyze_conflicts",
-        "description": "分析两个 Git 分支之间的代码变更，返回结构化的冲突报告（含风险等级、变更摘要、处理建议）",
+        "description": "分析两个特性分支分别合入目标分支时会产生哪些冲突。默认对比 main，也可指定其他目标分支",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "branch_a": {
                     "type": "string",
-                    "description": "源分支 A（要合并进来的分支）",
+                    "description": "特性分支 A",
                 },
                 "branch_b": {
                     "type": "string",
-                    "description": "目标分支 B（合并的目标分支）",
+                    "description": "特性分支 B",
+                },
+                "target": {
+                    "type": "string",
+                    "description": "目标分支（两个分支最终要合入的分支），默认 main",
+                    "default": "main",
                 },
                 "repo_path": {
                     "type": "string",
@@ -74,17 +79,18 @@ TOOLS: list[dict] = [
     },
     {
         "name": "resolve_conflicts",
-        "description": "自动解决两个分支之间的合并冲突。触发 git merge，解析冲突标记，逐块调用 LLM 生成合并代码",
+        "description": "将一个分支合并到目标分支，自动解决合并冲突。触发 git merge，解析冲突标记，逐块调用 LLM 生成合并代码",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "branch_a": {
+                "source": {
                     "type": "string",
-                    "description": "源分支 A（要合并进来的分支）",
+                    "description": "源分支（要合并进来的分支）",
                 },
-                "branch_b": {
+                "target": {
                     "type": "string",
-                    "description": "目标分支 B（合并的目标分支）",
+                    "description": "目标分支（合并的目标），默认 main",
+                    "default": "main",
                 },
                 "apply": {
                     "type": "boolean",
@@ -97,7 +103,7 @@ TOOLS: list[dict] = [
                     "default": ".",
                 },
             },
-            "required": ["branch_a", "branch_b"],
+            "required": ["source"],
         },
     },
     {
@@ -126,11 +132,19 @@ TOOLS: list[dict] = [
 # Tool handlers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _handle_analyze(branch_a: str, branch_b: str, repo_path: str = ".") -> dict:
+def _handle_analyze(branch_a: str, branch_b: str, target: str = "main", repo_path: str = ".") -> dict:
     repo = get_repo(repo_path)
-    diff_text = get_diff_text(repo, branch_a, branch_b)
-    if not diff_text:
-        return {"success": True, "message": "两个分支之间没有差异", "report": None}
+    target = target or "main"
+    # 分别获取两个分支相对于目标分支的变更（三点式 diff = 分支独有的变化）
+    diff_a = repo.git.diff(f"{target}...{branch_a}")
+    diff_b = repo.git.diff(f"{target}...{branch_b}")
+    diff_text = ""
+    if diff_a:
+        diff_text += f"# {branch_a} 相对 {target} 的变更\n{diff_a}\n"
+    if diff_b:
+        diff_text += f"# {branch_b} 相对 {target} 的变更\n{diff_b}"
+    if not diff_text.strip():
+        return {"success": True, "message": f"两个分支相对 {target} 都没有差异", "report": None}
     report = analyze_diff(diff_text)
 
     # 提取代码片段
@@ -149,12 +163,13 @@ def _handle_analyze(branch_a: str, branch_b: str, repo_path: str = ".") -> dict:
     }
 
 
-def _handle_resolve(branch_a: str, branch_b: str, apply: bool = False, repo_path: str = ".") -> dict:
+def _handle_resolve(source: str, target: str = "main", apply: bool = False, repo_path: str = ".") -> dict:
     from src.merger import resolve_all
     from git import Repo
 
     repo = Repo(repo_path, search_parent_directories=True)
-    report = resolve_all(repo, branch_a, branch_b, dry_run=not apply)
+    target = target or "main"
+    report = resolve_all(repo, source, target, dry_run=not apply)
     return {
         "success": True,
         "report": json.loads(report.model_dump_json()),
