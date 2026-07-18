@@ -185,3 +185,30 @@ python mcp_server.py
 ```bash
 skill-installer install https://github.com/Zephyr-Aether/merge-explain
 ```
+
+## 多平台 MCP 兼容
+
+merge-explain 的 MCP Server 可以在所有支持 MCP 协议的 AI 客户端中使用。
+
+| 客户端 | 配置文件 | 状态 |
+|--------|---------|------|
+| **Codex** | `.codex-plugin/plugin.json` | ✅ 自动发现 |
+| **Claude Desktop** | `claude_desktop_config.json` | ✅ 手动配置 |
+| **Claude Code** | `.mcp.json` 或 `CLAUDE.md` | ✅ 手动配置 |
+| **Cursor** | `.cursor/mcp.json` | ✅ 手动配置 |
+| **Continue.dev** | `~/.continue/config.json` | ✅ 手动配置 |
+| **Windsurf / Cascade** | 标准 MCP stdio | ✅ 兼容 |
+
+详细的配置模板见 [CLAUDE.md](./CLAUDE.md)。
+
+### 原理
+
+MCP（Model Context Protocol）是开放的 AI 工具协议。merge-explain 实现的是 **stdio 传输层**——客户端启动 `python mcp_server.py`，通过标准输入/输出用 JSON-RPC 2.0 通信。
+
+```
+AI 客户端 ──stdin/stdout──> mcp_server.py ──> Openai SDK
+  (tools/list)                     │
+  (tools/call)                     └──> GitPython
+```
+
+任何能启动子进程并接管 stdin/stdout 的客户端都能用，不绑定任何特定平台。
