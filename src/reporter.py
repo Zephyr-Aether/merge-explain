@@ -89,9 +89,15 @@ def _print_conflicts(report: MergeReport) -> None:
         risk_style = _RISK_STYLES.get(conflict.risk, "white")
         risk_label = _RISK_LABELS.get(conflict.risk, "未知")
 
+        snippet_block = ""
+        if conflict.code_snippet:
+            snippet_block = f"\n[bold]冲突代码:[/bold]\n" \
+                f"[dim]{conflict.code_snippet}[/dim]\n\n"
+
         conflict_panel = Panel(
             f"[bold]冲突点 #{i}[/bold]   风险等级: [{risk_style}]{risk_label}[/{risk_style}]\n\n"
             f"[bold]文件:[/bold] {conflict.file_path}\n\n"
+            f"{snippet_block}"
             f"[bold]Branch A 操作:[/bold]\n{conflict.branch_a_action}\n\n"
             f"[bold]Branch B 操作:[/bold]\n{conflict.branch_b_action}\n\n"
             f"[bold]处理建议:[/bold]\n{conflict.suggestion}",
@@ -180,11 +186,16 @@ def export_html(report: MergeReport, output_path: str) -> None:
     else:
         for conflict in report.conflicts:
             color = risk_colors.get(conflict.risk, "#666")
+            snippet_html = ""
+            if conflict.code_snippet:
+                snippet_html = f'<pre style="background:#f5f5f5;padding:8px;border-radius:4px;overflow-x:auto;font-size:13px">{conflict.code_snippet}</pre>'
+
             html_parts.append(
                 f'<div class="conflict-card risk-{conflict.risk.value}">'
                 f"<p><strong>文件:</strong> {conflict.file_path}</p>"
                 f"<p><strong>风险等级:</strong> "
                 f'<span style="color:{color};font-weight:bold">{conflict.risk.value}</span></p>'
+                f"{snippet_html}"
                 f"<p><strong>Branch A 操作:</strong> {conflict.branch_a_action}</p>"
                 f"<p><strong>Branch B 操作:</strong> {conflict.branch_b_action}</p>"
                 f"<p><strong>处理建议:</strong> {conflict.suggestion}</p>"

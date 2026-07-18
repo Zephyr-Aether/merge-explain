@@ -11,29 +11,59 @@ class RiskLevel(str, Enum):
 
 class ChangeItem(BaseModel):
     file_path: str
-    function_name: str  # 改动涉及的具体函数/类名
-    change_desc: str    # 自然语言描述（例如：把校验逻辑从JWT改为了Session）
+    function_name: str
+    change_desc: str
 
 
 class ConflictPoint(BaseModel):
     file_path: str
     risk: RiskLevel
-    branch_a_action: str  # A分支在这个冲突点干了什么
-    branch_b_action: str  # B分支在这个冲突点干了什么
-    suggestion: str       # AI给出的具体处理建议
+    branch_a_action: str
+    branch_b_action: str
+    suggestion: str
+    code_snippet: Optional[str] = None
 
 
 class MergeReport(BaseModel):
-    # 报告版本
     report_version: str = "1.0"
-
-    # 1. 高层摘要
     branch_a_summary: List[ChangeItem]
     branch_b_summary: List[ChangeItem]
-
-    # 2. 冲突详情
     conflicts: List[ConflictPoint]
+    overall_advice: str
+    reasoning: str
 
-    # 3. 总体决策
-    overall_advice: str  # "auto_merge" | "manual_review" | "blocked"
-    reasoning: str       # 一句话解释为什么给出这个建议
+
+# ===================== resolve 模型 =====================
+
+class ConflictRegion(BaseModel):
+    """从 <<<<<<< 标记中解析出的一个冲突块"""
+    file_path: str
+    region_id: str              # 唯一标识，用于定位
+    base_version: str           # 共同祖先版本（diff3 格式）
+    branch_a_version: str       # <<<<<<< 到 ======= 之间的代码
+    branch_b_version: str       # ======= 到 >>>>>>> 之间的代码
+    context_before: str         # 冲突前的上下文
+    context_after: str          # 冲突后的上下文
+    suggestion: Optional[str] = None
+
+
+class ResolveChange(BaseModel):
+    """单次冲突解决的记录"""
+    file_path: str
+    region_id: str
+    resolved_code: str
+    explanation: str
+    risk: RiskLevel
+
+
+class ResolveReport(BaseModel):
+    """resolve 命令的输出报告"""
+    report_version: str = "1.0"
+    branch_a: str
+    branch_b: str
+    changes: List[ResolveChange]
+    skipped: List[ConflictRegion]
+    total_conflicts: int
+    resolved_count: int
+    skipped_count: int
+    status: str   # "all_resolved" | "partial" | "failed"

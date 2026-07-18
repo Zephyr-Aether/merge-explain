@@ -143,3 +143,30 @@ def get_diff_for_file(
         return repo.git.diff(merge_base, branch_a, branch_b, "--", file_path)
     except GitCommandError:
         return ""
+
+
+def extract_conflict_snippets(diff_text: str, file_path: str) -> str:
+    """
+    从完整 diff 文本中提取指定文件的冲突代码片段。
+    返回格式化的 diff hunk，方便人类和 LLM 直观参考。
+    """
+    if not diff_text:
+        return ""
+    
+    lines = diff_text.splitlines()
+    snippet_lines: list[str] = []
+    in_target = False
+    
+    for line in lines:
+        # 检测目标文件的 diff 头
+        if line.startswith("diff --git") and file_path in line:
+            in_target = True
+            snippet_lines.append(line)
+            continue
+        # 离开目标文件的 diff 头进入下一个文件
+        if in_target and line.startswith("diff --git"):
+            break
+        if in_target:
+            snippet_lines.append(line)
+    
+    return "\n".join(snippet_lines) if snippet_lines else ""
