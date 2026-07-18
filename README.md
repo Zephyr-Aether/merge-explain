@@ -139,3 +139,49 @@ src/
 ├── reporter.py     # Rich 终端输出 + HTML / Markdown 导出
 └── models.py       # Pydantic 数据模型
 ```
+
+## MCP Server
+
+merge-explain 提供了标准 MCP Server，可接入任何支持 MCP 协议的 AI 客户端。
+
+### 可用 Tool
+
+| Tool | 说明 |
+|------|------|
+| `analyze_conflicts` | 分析两个分支的代码变更，返回结构化冲突报告 |
+| `resolve_conflicts` | 自动解决合并冲突（dry-run / apply） |
+| `list_branches` | 列出仓库中的所有分支 |
+| `sample_analysis` | 内置示例分析（无需 API Key） |
+
+### 接入方式
+
+**Smithery 市场**（推荐）：
+```bash
+# 即将上线
+```
+
+**本地运行**：
+```bash
+python mcp_server.py
+```
+
+**Codex / Claude Desktop**：
+```json
+{
+  "mcpServers": {
+    "merge-explain": {
+      "command": "python",
+      "args": ["/path/to/mcp_server.py"],
+      "env": {
+        "OPENAI_API_KEY": "sk-xxx"
+      }
+    }
+  }
+}
+```
+
+### 从源码安装为 Skill
+
+```bash
+skill-installer install https://github.com/Zephyr-Aether/merge-explain
+```
