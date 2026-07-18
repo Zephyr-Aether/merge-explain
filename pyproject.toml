@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "merge-explain"
+version = "0.1.0"
+description = "可解释性 AI 合并工具 — 先理解，再合并"
+requires-python = ">=3.9"
+dependencies = [
+    "gitpython>=3.1.40",
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+merge-explain = "src.main:main"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
