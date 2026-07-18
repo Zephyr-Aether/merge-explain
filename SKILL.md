@@ -1,108 +1,169 @@
 ---
 name: "merge-explain"
-description: "Analyze and resolve git merge conflicts with AI. Use when the user asks to analyze branch differences, understand conflicting changes between branches, auto-resolve merge conflicts, or get a structured merge report."
+description: "Analyze and resolve git merge conflicts. Use when the user asks to analyze branch differences, understand conflicting changes between branches, auto-resolve merge conflicts, or get a structured merge report."
 ---
 
-## Prerequisites
+## 能力说明
 
-1. Python 3.9+ must be installed. Check `python3 --version`. If missing, ask the user to install Python.
-2. API key must be configured. Check `.env` file exists with `OPENAI_API_KEY`. If missing, ask user to copy `.env.example` to `.env` and fill in the key.
-3. The current directory must be a git repository. Check with `git rev-parse --git-dir`.
+你可以自己分析两个 Git 分支之间的代码变更，不需要依赖任何外部 API。
 
-## Installation
+**流程**：
+1. 获取两个分支的 diff
+2. 分析变更语义
+3. 判断冲突风险等级
+4. 给出合并建议
+5. 可选：自动解决冲突
 
-If the tool is not yet installed:
+---
 
-```bash
-cd /path/to/merge-explain
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-```
+## 分析冲突
 
-## Workflow
-
-### 1. Analyze conflicts between two branches
-
-Use the MCP tool `analyze_conflicts` or the CLI command:
+### 1. 获取 diff
 
 ```bash
-./run.sh analyze <branch-a> <branch-b>
+# 找到共同祖先
+MERGE_BASE=$(git merge-base <branch-a> <branch-b>)
+
+# 获取双方的变更
+git diff $MERGE_BASE <branch-a>
+git diff $MERGE_BASE <branch-b>
+
+# 查看变更文件列表
+git diff $MERGE_BASE <branch-a> --name-status
+git diff $MERGE_BASE <branch-b> --name-status
+
+# 查看单个文件的详细 diff
+git diff $MERGE_BASE <branch-a> -- <file-path>
+git diff $MERGE_BASE <branch-b> -- <file-path>
 ```
 
-The output is a structured report containing:
+### 2. 分析变更
 
-- **branch_a_summary / branch_b_summary**: What each branch changed, organized by file and function
-- **conflicts**: List of conflict points, each with:
-  - `file_path`: Where the conflict occurs
-  - `risk`: Risk level (see below)
-  - `branch_a_action / branch_b_action`: What each branch did
-  - `suggestion`: AI's recommended handling
-  - `code_snippet`: The actual conflicting code lines
-- **overall_advice**: One of `auto_merge` / `manual_review` / `blocked`
-- **reasoning**: Why this advice was given
+逐文件、逐函数分析每个分支改了哪些内容。重点关注：
 
-### 2. Auto-resolve conflicts
+- **函数逻辑**：条件判断、循环、异常处理的变化
+- **类结构**：新增/删除/修改的类、继承关系
+- **API 接口**：参数、返回值、路由的变化
+- **配置文件**：环境变量、依赖、配置项的变化
+- **数据库模型**：字段、索引、关联关系的变化
 
-After reviewing the analysis, use the MCP tool `resolve_conflicts` or:
+可以忽略：代码格式化、变量重命名、注释修改、空白字符。
+
+### 3. 判断风险等级
+
+| 等级 | 定义 | 处理方式 |
+|------|------|---------|
+| 🟢 **green** | 双方改的是完全不同的文件或函数，逻辑无交集 | 可以安全自动合并 |
+| 🟡 **yellow** | 双方改了同一文件/函数但改的是不同方面，没有直接行冲突 | 建议人工复核 |
+| 🔴 **red** | 双方改动了同一行、同一判断条件、互斥的配置值 | 必须人工决策，不能自动合 |
+
+### 4. 给出建议
+
+对每个冲突点输出：
+- 哪个文件、哪个函数
+- 双方各自做了什么（自然语言描述意图）
+- 具体的处理建议
+- 风险等级
+
+### 5. 输出格式
+
+按以下结构汇报结果：
+
+```
+变更摘要：
+  <branch-a>：
+    - <file.py> → <function>：<一句话描述改动>
+  <branch-b>：
+    - <file.py> → <function>：<一句话描述改动>
+
+冲突详情：
+  #1  <file.py>  🟡/🔴/🟢
+    Branch A：做了什么
+    Branch B：做了什么
+    建议：具体可执行的处理建议
+
+总体建议：auto_merge / manual_review / blocked
+理由：一句话解释
+```
+
+---
+
+## 自动解决冲突
+
+### 触发合并
 
 ```bash
-# Preview only (default)
-./run.sh resolve <branch-a> <branch-b>
+# 切换到目标分支
+git checkout <branch-b>
 
-# Apply changes
-./run.sh resolve <branch-a> <branch-b> --apply
+# 触发合并（会产生冲突标记）
+git merge <branch-a> --no-commit --no-ff
 
-# Reuse analysis suggestions
-./run.sh resolve <branch-a> <branch-b> --from-report report.json
+# 查看冲突文件
+git diff --name-only --diff-filter=U
 ```
 
-The tool will:
-1. Trigger `git merge` to detect conflicts
-2. Parse `<<<<<<<` / `=======` / `>>>>>>>` markers
-3. Extract BASE / branch_a / branch_b versions with context
-4. Call LLM to generate merged code for each conflict block
-5. Apply changes with syntax checking
+### 解析冲突标记
 
-### 3. List branches
+冲突文件包含 `<<<<<<<` / `=======` / `>>>>>>>` 标记，格式为：
 
-Use the MCP tool `list_branches` to see available branches.
+```
+<<<<<<< HEAD
+当前分支的代码
+||||||| base_sha
+共同祖先的代码（diff3 格式才有）
+=======
+合并进来的分支代码
+>>>>>>> branch-a
+```
 
-### 4. Quick test
+### 解决冲突
 
-Run the sample analysis to verify the tool works (no API key needed):
+对每个冲突块：
+1. 看懂两边的代码意图
+2. 保留双方的有效逻辑
+3. 生成合并后的代码
+4. 替换冲突标记
+
+### 应用解决方案
 
 ```bash
-./run.sh sample
+# 替换文件中的冲突标记为合并后的代码
+# 然后提交
+git add <resolved-file>
+git commit -m "merge: resolve conflicts"
 ```
 
-## Risk Level Interpretation
+**安全措施**：
+- 修改前备份文件
+- 替换后运行 `python -c "compile(open(file).read(), file, 'exec')"` 检查语法
+- 语法不通过则回滚
 
-| Level | Meaning | Action |
-|-------|---------|--------|
-| 🟢 green | Different files/functions, no logical overlap | Safe to auto-merge |
-| 🟡 yellow | Same file/function, different aspects | Review recommended |
-| 🔴 red | Same line or mutually exclusive logic | Must resolve manually |
+---
 
-## Output Formats
-
-The `analyze` command supports:
-
-- `terminal` (default): Rich colored table output
-- `html`: Self-contained HTML report (use `-o report.html`)
-- `markdown`: Markdown report (use `-o report.md`)
-
-## Advanced Options
+## 列出分支
 
 ```bash
-./run.sh analyze <branch-a> <branch-b> -v          # Show raw diff alongside report
-./run.sh analyze <branch-a> <branch-b> --no-cache   # Force re-analysis
-./run.sh resolve <branch-a> <branch-b> --risk-threshold green  # Only auto-solve green conflicts
+git branch
 ```
 
-## Safety
+---
 
-- `analyze` never modifies files
-- `resolve` defaults to dry-run (preview only); use `--apply` to write
-- Auto-backup before writing; syntax check rolls back on failure
-- RED risk conflicts are always skipped in auto-resolve
+## 快速测试（验证技能可用）
+
+```bash
+echo "--- 测试分析能力 ---"
+echo "Base:    return a + b"
+echo "Branch A: return a + b + 1"
+echo "Branch B: return a * b"
+echo ""
+echo "分析：共同的函数逻辑被两个分支从不同方向修改"
+echo "A 改成了加 1，B 改成了乘法，互斥，属于 🔴 red"
+```
+
+## 安全提醒
+
+- `analyze` 阶段是只读的，不修改任何文件
+- 解决冲突前务必备份文件
+- 替换冲突标记后做语法检查
+- RED 等级的冲突建议用户人工决策
