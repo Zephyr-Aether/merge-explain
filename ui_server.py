@@ -37,6 +37,7 @@ class Handler(BaseHTTPRequestHandler):
             "/api/load": self._load_repo,
             "/api/analyze": self._analyze,
             "/api/resolve": self._resolve,
+            "/api/list-dirs": self._list_dirs,
         }
         handler = routes.get(self.path)
         if handler:
@@ -53,6 +54,26 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(HTML_CACHE.encode())
+
+    # ── API: list directories ──
+    def _list_dirs(self, body):
+        path = body.get("path", ".")
+        try:
+            p = Path(path).resolve()
+            entries = []
+            for child in sorted(p.iterdir()):
+                if child.is_dir() and not child.name.startswith("."):
+                    entries.append(child.name)
+            parent = str(p.parent) if p.parent != p else ""
+            self._json(200, {
+                "success": True,
+                "current": str(p),
+                "parent": parent,
+                "dirs": entries,
+                "is_git": (p / ".git").exists()
+            })
+        except Exception as e:
+            self._json(200, {"success": False, "error": str(e)})
 
     # ── API: load repo ──
     def _load_repo(self, body):
