@@ -38,6 +38,7 @@ class Handler(BaseHTTPRequestHandler):
             "/api/resolve": self._resolve,
             "/api/list-dirs": self._list_dirs,
             "/api/compare": self._compare,
+            "/api/pick-folder": self._pick_folder,
         }
         handler = routes.get(self.path)
         if handler:
@@ -116,6 +117,20 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             import traceback
             self._json(200, {"success": False, "error": str(e), "trace": traceback.format_exc()})
+
+    # ── API: native folder picker ──
+    def _pick_folder(self, body):
+        import subprocess, platform
+        try:
+            if platform.system() == "Darwin":
+                path = subprocess.check_output(["osascript", "-e",
+                    'POSIX path of (choose folder)'
+                ]).decode().strip()
+                self._json(200, {"success": True, "path": path})
+            else:
+                self._json(200, {"success": False, "error": "unsupported"})
+        except Exception as e:
+            self._json(200, {"success": False, "error": str(e)})
 
     # ── API: load repo ──
     def _load_repo(self, body):
