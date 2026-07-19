@@ -8,23 +8,54 @@ Merge-Explain 不做黑盒自动合，而是先分析双方变更语义，输出
 
 ---
 
-## 快速开始
+## 安装
 
 ```bash
-# 1. 配置 API Key
+# 1. 克隆项目
+git clone <你的仓库地址>
+cd merge-explain
+
+# 2. 配置 API Key
 cp .env.example .env
 # 编辑 .env，填入你的 Key（兼容 OpenAI / DeepSeek / 通义千问）
 
-# 2. 安装
-python3 -m venv .venv
-source .venv/bin/activate
+# 3. 一键安装所有依赖
 ./run.sh install
+```
 
-# 3. 启动
+`./run.sh install` 会自动：
+- 创建 Python 虚拟环境（`.venv/`）
+- 安装 Python 依赖（FastAPI / GitPython / OpenAI SDK 等）
+- 安装前端依赖（React / Vite / TypeScript）
+
+---
+
+## 启动
+
+### 开发模式（前后端热更新，推荐）
+
+```bash
 ./run.sh dev
 ```
 
-浏览器打开 `http://localhost:5173`。
+- 前端：Vite 开发服务器 → `http://localhost:5173`
+- 后端：FastAPI → `http://localhost:13920`
+- Vite 自动将 `/api/*` 请求代理到后端
+
+### 生产模式
+
+```bash
+./run.sh build     # 构建前端（输出到 frontend/dist/）
+./run.sh ui        # 启动 FastAPI 并托管前端
+```
+
+### 仅启动后端 API
+
+```bash
+./run.sh api
+```
+
+后端 API 地址：`http://localhost:13920`
 
 ---
 
@@ -43,17 +74,6 @@ source .venv/bin/activate
 
 ---
 
-## 命令
-
-| 命令 | 说明 |
-|------|------|
-| `./run.sh dev` | 开发模式（Vite 热更新 + FastAPI 后端） |
-| `./run.sh ui` | 生产模式（需先 `./run.sh build`） |
-| `./run.sh install` | 安装后端 pip 依赖 + 前端 npm 依赖 |
-| `./run.sh build` | 构建前端生产版本 |
-
----
-
 ## 项目结构
 
 ```
@@ -65,14 +85,14 @@ merge-explain/
 │       ├── App.css        # 暗色主题样式
 │       └── api.ts         # API 客户端
 ├── src/                   # 核心 Python 代码
-│   ├── main.py            # CLI 入口
+│   ├── main.py            # CLI 入口（Typer）
 │   ├── analyzer.py        # LLM Prompt + API 调用
-│   ├── git_ops.py         # Git diff 获取
+│   ├── git_ops.py         # Git diff 获取 + Token 截断
 │   ├── merger.py          # 冲突标记解析 + 自动合并
-│   ├── reporter.py        # 报告输出
+│   ├── reporter.py        # 报告输出（Rich）
 │   └── models.py          # Pydantic 数据模型
 ├── tests/                 # 39 个测试
-├── run.sh                 # 启动脚本
+├── run.sh                 # 启动脚本（install/dev/ui/api）
 └── pyproject.toml         # Python 依赖
 ```
 
@@ -88,6 +108,21 @@ merge-explain/
 | `POST /api/list-dirs` | 列出目录内容 |
 | `POST /api/compare` | 侧边对比两个版本的 Diff |
 | `POST /api/pick-folder` | macOS 原生文件夹选择器 |
+
+---
+
+## CLI 命令（无需前端）
+
+```bash
+# 分析分支差异
+./run.sh analyze <branch-a> <branch-b>
+
+# 自动解决冲突
+./run.sh resolve <branch-a> <branch-b> --apply
+
+# 快速体验（内置示例数据）
+./run.sh sample
+```
 
 ---
 
