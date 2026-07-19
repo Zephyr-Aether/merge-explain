@@ -379,16 +379,37 @@ def resolve_all(
 
             # 检查用户决策
             user_choice = (decisions or {}).get(region.file_path)
-            if user_choice in ("a", "b"):
-                raw = region.branch_a_version if user_choice == "a" else region.branch_b_version
+            if user_choice == "a":
                 result = ResolveChange(
                     file_path=region.file_path,
                     region_id=region.region_id,
-                    resolved_code=raw,
-                    explanation=f"User chose branch {user_choice.upper()}",
+                    resolved_code=region.branch_a_version,
+                    explanation="User chose branch A",
                     risk=RiskLevel.GREEN,
                 )
-                print(f"    ✅ 用户选择分支 {user_choice.upper()}")
+                print(f"    ✅ 用户选择分支 A")
+            elif user_choice == "b":
+                result = ResolveChange(
+                    file_path=region.file_path,
+                    region_id=region.region_id,
+                    resolved_code=region.branch_b_version,
+                    explanation="User chose branch B",
+                    risk=RiskLevel.GREEN,
+                )
+                print(f"    ✅ 用户选择分支 B")
+            elif user_choice == "llm":
+                time.sleep(0.3)
+                result = resolve_region(region)
+            elif user_choice:
+                # 自定义代码
+                result = ResolveChange(
+                    file_path=region.file_path,
+                    region_id=region.region_id,
+                    resolved_code=user_choice,
+                    explanation="User provided custom resolution",
+                    risk=RiskLevel.GREEN,
+                )
+                print(f"    ✅ 用户自定义代码 ({len(user_choice)} 字符)")
             else:
                 time.sleep(0.3)
                 result = resolve_region(region)

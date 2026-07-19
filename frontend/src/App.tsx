@@ -11,6 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import CodeMirror from '@uiw/react-codemirror'
+import { javascript } from '@codemirror/lang-javascript'
+import { python } from '@codemirror/lang-python'
+import { EditorView, Decoration, ViewPlugin } from '@codemirror/view'
 import {
   CheckCircle2, AlertTriangle, AlertCircle, Loader2,
   ArrowLeftRight, FolderOpen, GitBranch, Search, FileCode2, Download, Clock, FileCheck,
@@ -19,6 +23,41 @@ import {
 interface Conflict { file_path: string; risk: string; branch_a_action: string; branch_b_action: string; suggestion: string; code_snippet?: string }
 interface ChangeItem { file_path: string; function_name: string; change_desc: string }
 interface Report { branch_a_summary: ChangeItem[]; branch_b_summary: ChangeItem[]; conflicts: Conflict[]; overall_advice: string; reasoning: string }
+
+function getLangExt(filePath: string) {
+  if (filePath.endsWith('.py')) return python()
+  if (filePath.endsWith('.js') || filePath.endsWith('.jsx') || filePath.endsWith('.ts') || filePath.endsWith('.tsx')) return javascript()
+  return javascript()
+}
+
+function diffHighlightExtension() {
+  return ViewPlugin.fromClass(class {
+    decorations: any
+    constructor(view: EditorView) {
+      this.decorations = this.compute(view)
+    }
+    update(update: any) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = this.compute(update.view)
+      }
+    }
+    compute(view: EditorView) {
+      const deco: any[] = []
+      const doc = view.state.doc
+      for (let i = 1; i <= doc.lines; i++) {
+        const line = doc.line(i)
+        if (line.text.startsWith('+')) {
+          deco.push(Decoration.line({ class: 'bg-green-950/20' }).range(line.from))
+        } else if (line.text.startsWith('-')) {
+          deco.push(Decoration.line({ class: 'bg-red-950/20' }).range(line.from))
+        }
+      }
+      return Decoration.set(deco)
+    }
+  }, {
+    decorations: v => v.decorations
+  })
+}
 
 export default function App() {
   const [repoPath, setRepoPath] = useState('')
@@ -44,7 +83,7 @@ export default function App() {
   })
   const [expandedConflicts, setExpandedConflicts] = useState<Set<number>>(new Set())
   const [filterRisk, setFilterRisk] = useState<'all' | 'red' | 'yellow' | 'green'>('all')
-  const [decisions, setDecisions] = useState<Record<number, 'a' | 'b'>>({})
+  const [decisions, setDecisions] = useState<Record<number, string>>({})
   const [previewResult, setPreviewResult] = useState<any>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [diffIndex, setDiffIndex] = useState(0)
@@ -595,22 +634,52 @@ export default function App() {
                           <span>{c.branch_b_action}</span>
                         </div>
                         {c.code_snippet && (
-                          <ScrollArea className="h-24">
-                            <pre className="bg-background border border-muted rounded p-2 text-[11px] leading-relaxed overflow-x-auto whitespace-pre font-mono">{escHtml(c.code_snippet)}</pre>
-                          </ScrollArea>
+                          <div className="border border-border rounded overflow-hidden">
+                            <CodeMirror
+                              value={c.code_snippet}
+                              height="100px"
+                              theme="dark"
+                              extensions={[EditorView.editable.of(false), getLangExt(c.file_path), diffHighlightExtension()]}
+                              basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightSelectionMatches: false }}
+                              className="text-[11px]"
+                            />
+                          </div>
                         )}
                         <div className="px-2.5 py-2 rounded bg-accent/10 border border-accent/20 text-accent-custom">💡 {c.suggestion}</div>
                         <Button variant="secondary" size="sm" onClick={() => openDiff(c.file_path, i)}>
                           <FileCode2 className="h-3 w-3 mr-1" />
                           查看 Diff
                         </Button>
-                        <div className="flex gap-1.5 mt-1.5">
+                        <div className="flex gap-1.5 mt-1.5 flex-wrap">
                           <Button size="sm" variant={decisions[i] === 'a' ? 'default' : 'outline'}
                             onClick={() => setDecisions(d => ({...d, [i]: d[i] === 'a' ? undefined! : 'a'}))}
                             className="h-6 text-[10px]">采用 {branchA}</Button>
                           <Button size="sm" variant={decisions[i] === 'b' ? 'default' : 'outline'}
                             onClick={() => setDecisions(d => ({...d, [i]: d[i] === 'b' ? undefined! : 'b'}))}
                             className="h-6 text-[10px]">采用 {branchB}</Button>
+                          <Button size="sm" variant={decisions[i] === 'llm' ? 'default' : 'outline'}
+                            onClick={() => setDecisions(d => ({...d, [i]: d[i] === 'llm' ? undefined! : 'llm'}))}
+                            className="h-6 text-[10px]">使用建议</Button>
+                          {decisions[i] !== undefined && decisions[i] !== 'a' && decisions[i] !== 'b' && decisions[i] !== 'llm' ? (
+                            <div className="w-full mt-1">
+                              <CodeMirror
+                                value={decisions[i]}
+                                onChange={val => setDecisions(d => ({...d, [i]: val}))}
+                                height="80px"
+                                theme="dark"
+                                extensions={[getLangExt(c.file_path)]}
+                                basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, closeBrackets: true }}
+                                placeholder="输入合并后的代码..."
+                                className="w-full text-[11px] border border-border rounded overflow-hidden"
+                              />
+                              <Button size="sm" variant="ghost" onClick={() => { const dd = {...decisions}; delete dd[i]; setDecisions(dd) }}
+                                className="h-5 text-[9px] text-muted-foreground mt-1">取消编辑</Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost"
+                              onClick={() => setDecisions(d => ({...d, [i]: ''}))}
+                              className="h-6 text-[10px] text-muted-foreground">手动编辑</Button>
+                          )}
                           {decisions[i] && (
                             <Button size="sm" variant="ghost"
                               onClick={() => { const dd = {...decisions}; delete dd[i]; setDecisions(dd) }}
