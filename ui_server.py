@@ -19,7 +19,6 @@ from src.analyzer import analyze_diff
 
 PORT = 13920
 TEMPLATE = Path(__file__).parent / "templates" / "index.html"
-HTML_CACHE = None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -48,14 +47,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # ── HTML ──
     def _serve_html(self):
-        global HTML_CACHE
-        if HTML_CACHE is None:
-            HTML_CACHE = TEMPLATE.read_text(encoding="utf-8")
+        html = TEMPLATE.read_text(encoding="utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.end_headers()
-        self.wfile.write(HTML_CACHE.encode())
+        self.wfile.write(html.encode())
 
     # ── API: list directories ──
     def _list_dirs(self, body):
