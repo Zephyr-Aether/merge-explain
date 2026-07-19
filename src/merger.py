@@ -302,6 +302,7 @@ def resolve_all(
     branch_a: str,
     branch_b: str,
     suggestions: Optional[dict[str, str]] = None,
+    decisions: Optional[dict[str, str]] = None,
     risk_threshold: str = "yellow",
     dry_run: bool = True,
     commit: bool = False,
@@ -376,12 +377,21 @@ def resolve_all(
                 print("    跳过（阈值 green）")
                 continue
 
-            time.sleep(0.3)
-            result = resolve_region(region)
-            if result is None:
-                skipped.append(region)
-                print("    ⏭️ 跳过")
-                continue
+            # 检查用户决策
+            user_choice = (decisions or {}).get(region.file_path)
+            if user_choice in ("a", "b"):
+                raw = region.branch_a_version if user_choice == "a" else region.branch_b_version
+                result = ResolveChange(
+                    file_path=region.file_path,
+                    region_id=region.region_id,
+                    resolved_code=raw,
+                    explanation=f"User chose branch {user_choice.upper()}",
+                    risk=RiskLevel.GREEN,
+                )
+                print(f"    ✅ 用户选择分支 {user_choice.upper()}")
+            else:
+                time.sleep(0.3)
+                result = resolve_region(region)
 
             if dry_run and not commit:
                 changes.append(result)

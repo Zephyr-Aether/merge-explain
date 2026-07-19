@@ -17,8 +17,8 @@ export async function analyze(repo: string, branchA: string, branchB: string, ta
   return post('/api/analyze', { repo, branch_a: branchA, branch_b: branchB, target });
 }
 
-export async function resolve(repo: string, source: string, target: string, apply: boolean, commit: boolean) {
-  return post('/api/resolve', { repo, source, target, apply, commit });
+export async function resolve(repo: string, source: string, target: string, decisions: Record<string, string>, apply: boolean, commit: boolean) {
+  return post('/api/resolve', { repo, source, target, decisions, apply, commit });
 }
 
 export async function listDirs(path: string) {

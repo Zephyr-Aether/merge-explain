@@ -10,6 +10,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional, Dict
 from pydantic import BaseModel
 
 app = FastAPI(title="Merge-Explain", version="0.1.0")
@@ -24,7 +25,7 @@ from git import Repo
 # ── Models ──
 class LoadReq(BaseModel): path: str = "."
 class AnalyzeReq(BaseModel): repo: str = "."; branch_a: str; branch_b: str; target: str = "main"
-class ResolveReq(BaseModel): repo: str = "."; source: str; target: str = "main"; apply: bool = False; commit: bool = False
+class ResolveReq(BaseModel): repo: str = "."; source: str; target: str = "main"; decisions: Optional[Dict[str, str]] = None; apply: bool = False; commit: bool = False
 class ListDirsReq(BaseModel): path: str = "."
 class CompareReq(BaseModel): repo: str = "."; ref_a: str = "main"; ref_b: str; file: str
 
@@ -65,7 +66,7 @@ def api_analyze(req: AnalyzeReq):
 def api_resolve(req: ResolveReq):
     try:
         repo = Repo(req.repo, search_parent_directories=True)
-        report = resolve_all(repo, req.source, req.target, dry_run=not (req.apply or req.commit), commit=req.commit)
+        report = resolve_all(repo, req.source, req.target, decisions=req.decisions, dry_run=not (req.apply or req.commit), commit=req.commit)
         return {"success": True, "report": json.loads(report.model_dump_json())}
     except Exception as e:
         return {"success": False, "error": str(e)}
