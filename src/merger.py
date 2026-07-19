@@ -304,6 +304,7 @@ def resolve_all(
     suggestions: Optional[dict[str, str]] = None,
     risk_threshold: str = "yellow",
     dry_run: bool = True,
+    commit: bool = False,
 ) -> ResolveReport:
     """
     完整解决流程：
@@ -318,6 +319,7 @@ def resolve_all(
     changes: List[ResolveChange] = []
     skipped: List[ConflictRegion] = []
     wd = Path(repo.working_dir)
+    resolved_files: dict[str, str] = {}
 
     # 0. 切换到目标分支
     orig_branch = repo.active_branch.name
@@ -381,7 +383,7 @@ def resolve_all(
                 print("    ⏭️ 跳过")
                 continue
 
-            if dry_run:
+            if dry_run and not commit:
                 changes.append(result)
                 print(f"    ✅ (预览) 合并后代码 {len(result.resolved_code)} 字符")
                 continue
@@ -391,14 +393,23 @@ def resolve_all(
             )
             if ok:
                 changes.append(result)
+                if not commit and region.file_path not in resolved_files:
+                    resolved_files[region.file_path] = Path(wd / region.file_path).read_text()
                 print(f"    ✅ 已解决")
             else:
                 skipped.append(region)
                 print(f"    ❌ {msg}")
 
-        # 5. abort merge
-        repo.git.merge("--abort")
-        aborted = True
+        # 5. commit or abort
+        if commit and changes:
+            repo.git.add("--all")
+            repo.git.commit("-m", f"Merge branch '{branch_a}' with automatic conflict resolution")
+            aborted = True
+        else:
+            repo.git.merge("--abort")
+            aborted = True
+            for fp, content in resolved_files.items():
+                Path(wd / fp).write_text(content)
 
     except Exception as e:
         print(f"  [错误] {e}")
