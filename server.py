@@ -117,14 +117,19 @@ def api_pick_folder():
         return {"success": False, "error": str(e)}
 
 def _extract_snippet(diff_text: str, file_path: str) -> str:
+    """提取干净的 diff 片段，去掉 git 头部元数据。"""
     lines = diff_text.splitlines()
     result, in_file = [], False
     for line in lines:
         if line.startswith("diff --git") and file_path in line: in_file = True
         if in_file:
-            result.append(line)
             if line.startswith("diff --git") and file_path not in line: break
-    return "\n".join(result[:80]) if result else ""
+            if line.startswith("diff --git") or line.startswith("index ") or \
+               line.startswith("--- ") or line.startswith("+++ ") or \
+               line.startswith("@@"):
+                continue
+            result.append(line)
+    return "\n".join(result[:60]) if result else ""
 
 if __name__ == "__main__":
     import uvicorn

@@ -2,15 +2,9 @@
 
 **可解释性 AI 合并工具 — 先理解，再合并**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.txt)
+AI 生成代码越来越普遍，但多个分支各自有大量改动时，开发者看不懂 Diff，合并冲突不敢处理。
 
-## 解决的问题
-
-AI 生成代码（Cursor / Claude Code / Copilot）越来越普及，但带来新痛点：
-
-> 多个分支各自有大量 AI 改动，开发者看不懂 Diff，合并冲突时不敢处理。
-
-Merge-Explain 不做黑盒自动合，而是**先理解双方分别做了什么**——LLM 分析变更语义，输出风险等级和处理建议，按你的确认逐块自动合并。
+Merge-Explain 不做黑盒自动合，而是先分析双方变更语义，输出风险等级和处理建议，按确认后逐块自动合并。
 
 ---
 
@@ -24,69 +18,39 @@ cp .env.example .env
 # 2. 安装
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+./run.sh install
 
-# 3. 快速体验（无需 Key）
-./run.sh sample
-
-# 4. 分析分支差异
-./run.sh analyze feature-a feature-b
-
-# 5. 自动解决冲突
-./run.sh resolve feature-a feature-b --apply
+# 3. 启动
+./run.sh dev
 ```
+
+浏览器打开 `http://localhost:5173`。
 
 ---
 
-## CLI 命令
+## 使用流程
 
-### analyze — 分析变更语义
-
-```bash
-./run.sh analyze <branch-a> <branch-b>
+```
+① 选择仓库 → ② 选择分支 → ③ 分析冲突 → ④ 查看结果
 ```
 
-输出结构化报告：
+1. **选择仓库** — 点击「选择文件夹」用 macOS 原生对话框选目录，或直接在路径栏输入
+2. **选择分支** — 选两个特性分支和一个目标分支（默认 main）
+3. **分析冲突** — 点「分析冲突」，LLM 分析变更语义
+4. **查看结果** — 风险等级卡片 + 可展开的冲突详情 + 侧边对比 Diff
 
-| 板块 | 内容 |
-|------|------|
-| **变更摘要** | 每个分支改了哪些文件、函数、做了什么 |
-| **冲突详情** | 风险等级（🟢 🟡 🔴）+ 处理建议 + 冲突代码片段 |
-| **总体决策** | `auto_merge` / `manual_review` / `blocked` + 理由 |
-
-| 选项 | 说明 |
-|------|------|
-| `-o`, `--output` | 导出报告（`-o report.html`） |
-| `-f`, `--format` | `terminal`（默认）/ `html` / `markdown` |
-| `-v`, `--verbose` | 同时显示原始 Diff |
-| `--no-cache` | 跳过缓存，强制重新分析 |
-
-### resolve — 自动解决冲突
-
-```bash
-./run.sh resolve <branch-a> <branch-b>          # 预览（默认）
-./run.sh resolve <branch-a> <branch-b> --apply  # 写入文件
-```
-
-流程：`git merge` 触发冲突 → 解析 `<<<<<<<` 标记 → 提取三方代码 → LLM 逐块合并 → 替换 + 语法检查。
-
-| 选项 | 说明 |
-|------|------|
-| `--apply` | 实际写入文件（默认只预览） |
-| `--from-report` | 复用 analyze 的分析结果 |
-| `--risk-threshold` | `green` / `yellow`（RED 永远跳过） |
+勾选「应用修改并提交合并」后点「自动解决冲突」→ LLM 逐块生成合并代码 → 写入文件 → git commit。
 
 ---
 
-## 安全策略
+## 命令
 
-| 阶段 | 措施 |
+| 命令 | 说明 |
 |------|------|
-| **analyze** | 只读，不碰任何文件 |
-| **resolve 预览** | 不写文件，展示 diff |
-| **resolve 应用** | 自动备份 → 写入 → 语法检查 → 失败回滚 |
-| **RED 冲突** | 跳过自动解决，强制人工处理 |
-| **异常兜底** | `git merge --abort` 保证 |
+| `./run.sh dev` | 开发模式（Vite 热更新 + FastAPI 后端） |
+| `./run.sh ui` | 生产模式（需先 `./run.sh build`） |
+| `./run.sh install` | 安装后端 pip 依赖 + 前端 npm 依赖 |
+| `./run.sh build` | 构建前端生产版本 |
 
 ---
 
@@ -94,96 +58,49 @@ pip install -e .
 
 ```
 merge-explain/
-├── SKILL.md                    # skills.sh 标准技能指令
-├── agents/
-│   └── openai.yaml             # 代理接入配置
-├── assets/                     # 技能图标
-├── LICENSE.txt                 # MIT 许可证
-├── .codex-plugin/
-│   └── plugin.json             # Codex 插件注册
-│
-├── mcp_server.py               # MCP Server（标准协议）
-├── mcp_entry.py                 # MCP 入口（自动加载 .env）
-├── .mcp.json                   # Claude Code 自动发现配置
-├── CLAUDE.md                   # 多平台 MCP 配置模板
-│
-├── src/
-│   ├── main.py                 # CLI 入口（analyze / resolve / sample / version）
-│   ├── analyzer.py             # LLM Prompt + API 调用 + 重试降级
-│   ├── git_ops.py              # Git diff + Token 截断 + 冲突片段提取
-│   ├── merger.py               # 冲突标记解析 + LLM 单块解决 + 安全替换
-│   ├── reporter.py             # Rich 终端输出 + HTML / Markdown 导出
-│   └── models.py               # Pydantic 数据模型
-│
-├── tests/                      # 39 个测试
-├── scripts/                    # 辅助脚本
-├── docs/                       # 设计文档
-└── smithery.yaml               # Smithery MCP 市场配置
+├── server.py              # FastAPI 后端
+├── frontend/              # React + Vite + TypeScript
+│   └── src/
+│       ├── App.tsx        # 主组件（仓库/分支/冲突/Diff）
+│       ├── App.css        # 暗色主题样式
+│       └── api.ts         # API 客户端
+├── src/                   # 核心 Python 代码
+│   ├── main.py            # CLI 入口
+│   ├── analyzer.py        # LLM Prompt + API 调用
+│   ├── git_ops.py         # Git diff 获取
+│   ├── merger.py          # 冲突标记解析 + 自动合并
+│   ├── reporter.py        # 报告输出
+│   └── models.py          # Pydantic 数据模型
+├── tests/                 # 39 个测试
+├── run.sh                 # 启动脚本
+└── pyproject.toml         # Python 依赖
 ```
 
 ---
 
-## MCP Server
+## API 端点
 
-merge-explain 提供标准 MCP Server，可接入任何支持 MCP 协议的 AI 客户端。
-
-### 可用 Tool
-
-| Tool | 说明 |
+| 端点 | 说明 |
 |------|------|
-| `analyze_conflicts` | 分析两个分支变更，返回结构化报告 |
-| `resolve_conflicts` | 自动解决合并冲突 |
-| `list_branches` | 列出仓库分支 |
-| `sample_analysis` | 内置示例（无需 API Key） |
-
-### 多平台支持
-
-| 客户端 | 配置方式 | 文档 |
-|--------|---------|------|
-| **Claude Code** | `.mcp.json` 自动发现 | [CLAUDE.md](./CLAUDE.md) |
-| **Claude Desktop** | `claude_desktop_config.json` | [CLAUDE.md](./CLAUDE.md) |
-| **Cursor** | `.cursor/mcp.json` | [CLAUDE.md](./CLAUDE.md) |
-| **Continue.dev** | `~/.continue/config.json` | [CLAUDE.md](./CLAUDE.md) |
-| **Codex** | `.codex-plugin/plugin.json` 自动发现 | — |
-
-### 本地测试
-
-```bash
-python mcp_server.py
-```
-
-MCP 客户端通过 stdin/stdout 用 JSON-RPC 2.0 通信：
-
-```
-AI 客户端 ──stdin/stdout──> mcp_server.py ──> OpenAI SDK
-                              │
-                              └──> GitPython
-```
+| `POST /api/load` | 加载仓库，返回分支列表 |
+| `POST /api/analyze` | 分析两个分支的冲突 |
+| `POST /api/resolve` | 自动解决冲突 |
+| `POST /api/list-dirs` | 列出目录内容 |
+| `POST /api/compare` | 侧边对比两个版本的 Diff |
+| `POST /api/pick-folder` | macOS 原生文件夹选择器 |
 
 ---
 
 ## 技术栈
 
-- Python 3.9+
-- GitPython · OpenAI SDK · Typer · Rich · Pydantic v2
-- MCP 标准协议（JSON-RPC 2.0 over stdio）
+- **后端**: Python 3.9+ / FastAPI / GitPython / OpenAI SDK
+- **前端**: React 18 / Vite / TypeScript
+- **CLI**: Typer / Rich / Pydantic v2
 
----
+## 安全策略
 
-## Skill 市场
-
-本项目遵循 [skills.sh](https://skills.sh) 标准技能格式，可直接提交至市场：
-
-```
-skills/.curated/merge-explain/
-├── SKILL.md
-├── agents/openai.yaml
-├── assets/
-├── LICENSE.txt
-```
-
-也可从 GitHub 直接安装：
-
-```bash
-skill-installer install https://github.com/Zephyr-Aether/merge-explain
-```
+- analyze 阶段只读，不碰任何文件
+- resolve 默认预览，`--apply` 或勾选应用才写入
+- 写入前自动备份，语法检查不通过自动回滚
+- RED 级别冲突跳过自动解决
+- `git merge --abort` 兜底恢复
