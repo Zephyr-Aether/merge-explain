@@ -38,6 +38,7 @@ class Handler(BaseHTTPRequestHandler):
             "/api/analyze": self._analyze,
             "/api/resolve": self._resolve,
             "/api/list-dirs": self._list_dirs,
+            "/api/compare": self._compare,
         }
         handler = routes.get(self.path)
         if handler:
@@ -75,6 +76,49 @@ class Handler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._json(200, {"success": False, "error": str(e)})
+
+    # ── API: compare two refs for a file ──
+    def _compare(self, body):
+        ref_a = body.get("ref_a", "main")
+        ref_b = body.get("ref_b", "")
+        file_path = body.get("file", "")
+        repo_path = body.get("repo", ".")
+        import difflib, subprocess
+        try:
+            def get_lines(ref):
+                try:
+                    out = subprocess.check_output(
+                        ["git", "-C", repo_path, "show", f"{ref}:{file_path}"],
+                        stderr=subprocess.DEVNULL
+                    ).decode("utf-8")
+                    return out.splitlines()
+                except:
+                    return []
+            lines_a = get_lines(ref_a)
+            lines_b = get_lines(ref_b)
+            matcher = difflib.SequenceMatcher(None, lines_a, lines_b)
+            rows = []
+            na, nb = 0, 0
+            for op, i1, i2, j1, j2 in matcher.get_opcodes():
+                for idx in range(max(i2-i1, j2-j1)):
+                    la = lines_a[i1+idx] if i1+idx < i2 else ""
+                    lb = lines_b[j1+idx] if j1+idx < j2 else ""
+                    if op == 'equal':
+                        na += 1; nb += 1
+                        rows.append({"t":"eq","la":la,"lb":lb,"na":na,"nb":nb})
+                    elif op == 'replace':
+                        na += 1; nb += 1
+                        rows.append({"t":"rp","la":la,"lb":lb,"na":na,"nb":nb})
+                    elif op == 'delete':
+                        na += 1
+                        rows.append({"t":"dl","la":la,"lb":"","na":na,"nb":0})
+                    elif op == 'insert':
+                        nb += 1
+                        rows.append({"t":"ad","la":"","lb":lb,"na":0,"nb":nb})
+            self._json(200, {"success": True, "rows": rows, "file": file_path})
+        except Exception as e:
+            import traceback
+            self._json(200, {"success": False, "error": str(e), "trace": traceback.format_exc()})
 
     # ── API: load repo ──
     def _load_repo(self, body):
