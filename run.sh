@@ -7,7 +7,7 @@ case "${1:-ui}" in
     cd "$SCRIPT_DIR"
     exec "$VENV/bin/python" -c "
 import uvicorn
-from backend.main import app
+from server import app
 uvicorn.run(app, host='127.0.0.1', port=13920)
 "
     ;;
@@ -29,7 +29,7 @@ uvicorn.run(app, host='127.0.0.1', port=13920)
     cd "$SCRIPT_DIR/frontend" && npm run dev &
     "$SCRIPT_DIR/.venv/bin/python" -c "
 import uvicorn
-from backend.main import app
+from server import app
 uvicorn.run(app, host='127.0.0.1', port=13920)
 "
     ;;
