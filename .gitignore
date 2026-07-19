@@ -25,3 +25,7 @@ Thumbs.db
 
 # Skill assets samples
 *.sample
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

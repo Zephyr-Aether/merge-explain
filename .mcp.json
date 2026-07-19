@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "merge-explain": {
-      "command": "python",
-      "args": ["mcp_server.py"],
-      "env": {}
-    }
-  }
-}
